@@ -1,3 +1,6 @@
 <resources>
-    <string name="app_name">AndroidERestaurant</string>
+    <string name="app_name">Amaze E-Restaurant</string>
+    <string name="menu_starter">Entrées</string>
+    <string name="menu_main">Plats</string>
+    <string name="menu_dessert">Desserts</string>
 </resources>
