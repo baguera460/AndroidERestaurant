@@ -14,11 +14,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,8 +35,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,16 +49,24 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.android.volley.Cache
 import com.android.volley.Request
+import com.android.volley.RequestQueue
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.google.gson.GsonBuilder
+import fr.isen.bourdier.androiderestaurant.basket.Basket
+import fr.isen.bourdier.androiderestaurant.basket.BasketActivity
 import fr.isen.bourdier.androiderestaurant.network.Category
 import fr.isen.bourdier.androiderestaurant.network.Dish
 import fr.isen.bourdier.androiderestaurant.network.MenuResult
@@ -59,8 +74,9 @@ import fr.isen.bourdier.androiderestaurant.network.NetworkConstants
 import fr.isen.bourdier.androiderestaurant.ui.theme.AndroidERestaurantTheme
 import org.json.JSONObject
 
+
 interface DishInterface {
-    fun onLogoClick()
+    fun redirectToPage(activityClass: Class<*>)
 }
 
 class MenuActivity : ComponentActivity(), DishInterface {
@@ -82,16 +98,19 @@ class MenuActivity : ComponentActivity(), DishInterface {
         }
     }
 
-    override fun onLogoClick() {
-        val intent = Intent(this, HomeActivity::class.java)
+    override fun redirectToPage(activityClass: Class<*>) {
+        val intent = Intent(this, activityClass)
         startActivity(intent)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MenuView(activity: DishInterface, type: DishType) {
+fun MenuView(activity: MenuActivity, type: DishType) {
     val category = remember { mutableStateOf<Category?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
+    val queue by remember { mutableStateOf(Volley.newRequestQueue(activity)) }
+    val currentCategory = type.title()
 
     Column {
         CenterAlignedTopAppBar(
@@ -107,11 +126,35 @@ fun MenuView(activity: DishInterface, type: DishType) {
                 )
             },
             navigationIcon = {
-                IconButton(onClick = { activity.onLogoClick() }) {
+                IconButton(onClick = { activity.redirectToPage(HomeActivity::class.java) }) {
                     Icon(
                         imageVector = ImageVector.vectorResource(id = R.drawable.amaze_logo),
                         contentDescription = "Amaze logo"
                     )
+                }
+            },
+            actions = {
+                IconButton(onClick = { activity.redirectToPage(BasketActivity::class.java) }) {
+                    BadgedBox(
+                        badge = {
+                            Badge(
+                                modifier = Modifier.offset(y=10.dp, x= (-5).dp),
+                                containerColor = Color.LightGray
+                            ){
+                                val badgeNumber = Basket.current(LocalContext.current).items.size.toString()
+                                Text(
+                                    badgeNumber,
+                                    modifier = Modifier.semantics {
+                                        contentDescription = "$badgeNumber new notifications"
+                                    }
+                                )
+                            }
+                        }) {
+                        Icon(
+                            Icons.Default.ShoppingCart,
+                            contentDescription = "Basket"
+                        )
+                    }
                 }
             }
         )
@@ -123,18 +166,28 @@ fun MenuView(activity: DishInterface, type: DishType) {
             color = MaterialTheme.colorScheme.primary
         )
     }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+
+    SwipeRefresh(
+        state = rememberSwipeRefreshState(isRefreshing = refreshing),
+        onRefresh = {
+            queue.cache.clear()
+            postData(queue, category, currentCategory)
+            refreshing = false
+        },
     ) {
-        category.value?.let {
-            items(it.items) { dish ->
-                DishRow(dish)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+        ) {
+            category.value?.let {
+                items(it.items) { dish ->
+                    DishRow(dish)
+                }
             }
         }
     }
 
-    PostData(type, category)
+    RequestData(type, category, queue)
 }
 
 @Composable
@@ -146,7 +199,12 @@ fun DishRow(dish: Dish) {
             .fillMaxWidth()
             .clickable {
                 val intent = Intent(context, DetailActivity::class.java)
-                intent.putExtra("dish", GsonBuilder().create().toJson(dish))
+                intent.putExtra(
+                    "dish",
+                    GsonBuilder()
+                        .create()
+                        .toJson(dish)
+                )
                 context.startActivity(intent)
             }
     ) {
@@ -181,24 +239,42 @@ fun DishRow(dish: Dish) {
 }
 
 @Composable
-fun PostData(type: DishType, category: MutableState<Category?>) {
+fun RequestData(type: DishType, category: MutableState<Category?>, queue: RequestQueue) {
     val currentCategory = type.title()
-    val context = LocalContext.current
-    val queue = Volley.newRequestQueue(context)
+    val cache = queue.cache.get(NetworkConstants.URL)
 
-    val params = JSONObject()
-    params.put(NetworkConstants.ID_SHOP, "1")
+    if (cache == null) {
+        postData(queue, category, currentCategory)
+    } else {
+        val response = JSONObject(String(cache.data))
+        category.value = getFilteredCategory(currentCategory, response)
+    }
+}
+
+private fun postData(
+    queue: RequestQueue,
+    category: MutableState<Category?>,
+    currentCategory: String
+) {
+    val params = JSONObject().let {
+        it.put(NetworkConstants.ID_SHOP, "1")
+        it
+    }
 
     val request = JsonObjectRequest(
         Request.Method.POST,
         NetworkConstants.URL,
         params,
         { response ->
-            Log.d("request", response.toString(2))
-            val result =
-                GsonBuilder().create().fromJson(response.toString(), MenuResult::class.java)
-            val filteredResult = result.data.first { category -> category.name == currentCategory }
-            category.value = filteredResult
+            category.value = getFilteredCategory(currentCategory, response)
+            val cache = Cache.Entry().let {
+                it.data = response.toString().toByteArray()
+                it.ttl = 60 * 60 * 24 * 7
+                it.serverDate = System.currentTimeMillis()
+                it.responseHeaders = mutableMapOf("Cache-Control" to "max-age=0")
+                it
+            }
+            queue.cache.put(NetworkConstants.URL, cache)
         },
         {
             Log.e("request", it.toString())
@@ -206,4 +282,10 @@ fun PostData(type: DishType, category: MutableState<Category?>) {
     )
 
     queue.add(request)
+}
+
+private fun getFilteredCategory(currentCategory: String, response: JSONObject): Category {
+    val result =
+        GsonBuilder().create().fromJson(response.toString(), MenuResult::class.java)
+    return result.data.first { it.name == currentCategory }
 }

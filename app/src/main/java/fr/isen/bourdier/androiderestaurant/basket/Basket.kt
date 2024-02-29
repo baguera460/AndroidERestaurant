@@ -22,7 +22,12 @@ class Basket {
         save(context)
     }
 
-    fun save(context: Context) {
+    fun deleteAll(context: Context) {
+        items.clear()
+        save(context)
+    }
+
+    private fun save(context: Context) {
         val json = GsonBuilder().create().toJson(this)
 
         val sharedPreferences =

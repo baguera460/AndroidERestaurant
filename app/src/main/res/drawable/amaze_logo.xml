@@ -1,9 +1,9 @@
-<vector xmlns:tools="http://schemas.android.com/tools"
-    android:height="500dp"
-    android:viewportHeight="500"
-    android:viewportWidth="500"
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:width="500dp"
-    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="500dp"
+    android:viewportWidth="500"
+    android:viewportHeight="500"
     tools:ignore="VectorRaster">
     <path
         android:fillColor="#DB4A2B"

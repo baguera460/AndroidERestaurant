@@ -2,14 +2,19 @@ package fr.isen.bourdier.androiderestaurant
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -22,13 +27,19 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.isen.bourdier.androiderestaurant.basket.Basket
+import fr.isen.bourdier.androiderestaurant.basket.BasketActivity
 import fr.isen.bourdier.androiderestaurant.ui.theme.AndroidERestaurantTheme
 
 enum class DishType {
@@ -46,6 +57,7 @@ enum class DishType {
 
 interface HomeInterface {
     fun onMenuClick(type: DishType, category: String)
+    fun goToBasket()
 }
 
 class HomeActivity : ComponentActivity(), HomeInterface {
@@ -62,10 +74,20 @@ class HomeActivity : ComponentActivity(), HomeInterface {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+
+        Log.d("HomeActivity", "HomeActivity destroyed")
+    }
+
     override fun onMenuClick(type: DishType, category: String) {
-        Toast.makeText(this, "Redirection vers les $category", Toast.LENGTH_SHORT).show()
         val intent = Intent(this, MenuActivity::class.java)
         intent.putExtra("type", type.name)
+        startActivity(intent)
+    }
+
+    override fun goToBasket() {
+        val intent = Intent(this, BasketActivity::class.java)
         startActivity(intent)
     }
 }
@@ -92,6 +114,30 @@ fun HomeView(activity: HomeActivity) {
                         imageVector = ImageVector.vectorResource(id = R.drawable.amaze_logo),
                         contentDescription = "Amaze logo"
                     )
+                }
+            },
+            actions = {
+                IconButton(onClick = { activity.goToBasket() }) {
+                    BadgedBox(
+                        badge = {
+                            Badge(
+                                modifier = Modifier.offset(y=10.dp, x= (-5).dp),
+                                containerColor = Color.LightGray
+                            ){
+                                val badgeNumber = Basket.current(LocalContext.current).items.size.toString()
+                                Text(
+                                    badgeNumber,
+                                    modifier = Modifier.semantics {
+                                        contentDescription = "$badgeNumber new notifications"
+                                    }
+                                )
+                            }
+                        }) {
+                        Icon(
+                            Icons.Default.ShoppingCart,
+                            contentDescription = "Basket"
+                        )
+                    }
                 }
             }
         )

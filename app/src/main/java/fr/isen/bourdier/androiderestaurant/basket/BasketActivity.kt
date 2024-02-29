@@ -2,6 +2,7 @@ package fr.isen.bourdier.androiderestaurant.basket
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -40,10 +40,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import fr.isen.bourdier.androiderestaurant.HomeActivity
@@ -75,7 +73,12 @@ fun BasketView(activity: BasketInterface) {
     val basketItems = remember {
         mutableStateListOf<BasketItem>()
     }
-    Column {
+
+    Column(
+        Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         CenterAlignedTopAppBar(
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -105,6 +108,13 @@ fun BasketView(activity: BasketInterface) {
             items(basketItems) {
                 BasketItemView(it, basketItems)
             }
+        }
+        Button(onClick = {
+            Basket.current(context).deleteAll(context)
+            Toast.makeText(context, "Commande passée", Toast.LENGTH_SHORT).show()
+            activity.onLogoClick()
+        }) {
+            Text("Passer la commande")
         }
     }
     basketItems.addAll(Basket.current(context).items)
